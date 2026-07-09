@@ -1,16 +1,18 @@
 # AlphaEvolve Skills
 
 ## Overview
-The AlphaEvolve skills allow you to run AlphaEvolve experiments directly from an agentic coding assistant (e.g. Antigravity). Using these skills, your coding assistant will guide you through the entire AlphaEvolve workflow, including configuring the experiment, running the evolutionary loop, building monitoring and obseravability reporting, and integrating the best result back into your code.
+The AlphaEvolve skills allow you to run AlphaEvolve experiments directly from an agentic coding assistant (e.g. Antigravity). Using these skills, your coding assistant will guide you through the entire AlphaEvolve workflow, including configuring the experiment, running the evolutionary loop, building monitoring and observability reporting, and integrating the best result back into your code.
 
 There are 6 AlphaEvolve skills included, with README.md and SKILLS.md files provided for each skill.
 
-* alpha_evolve_consultant
-* alpha_evolve_experiment_design
-* alpha_evolve_monitor
-* alpha_evolve_orchestrator
-* alpha_evolve_post_experiment
-* alpha_evolve_runner
+| Skill | Description |
+| --- | --- |
+| [`alpha_evolve_experiment_design`](alpha_evolve_experiment_design/) | Scaffolds experiments. Handles problem definition, initial seed program, and evaluator generation via a rigorous test-driven workflow. |
+| [`alpha_evolve_runner`](alpha_evolve_runner/) | Validates evaluator connectivity, configures backend requirements, and launches the experiment using the `ae` CLI. |
+| [`alpha_evolve_monitor`](alpha_evolve_monitor/) | Monitors running experiments, manages the local evaluation control loop, and provides periodic live progress reports. |
+| [`alpha_evolve_post_experiment`](alpha_evolve_post_experiment/) | Analyzes completed runs, produces visual reports (charts/metrics), and seamlessly integrates the best evolved code back into your codebase. |
+| [`alpha_evolve_orchestrator`](alpha_evolve_orchestrator/) | The master workflow skill. Automatically detects the current phase of the experiment and chains the Design, Runner, and Monitor skills for an end-to-end experience. |
+| [`alpha_evolve_consultant`](alpha_evolve_consultant/) | A read-only advisory skill. Answers questions on experiment design, best practices, and troubleshooting based strictly on the expert reference guide. |
 
 Important limitations of this version:
 
@@ -40,9 +42,7 @@ gcloud auth application-default login
 uv --version
 ```
 
-4. A [Google Cloud Platform (GCP)](https://docs.cloud.google.com/resource-manager/docs/creating-managing-projects) project needs to be created / provisioned with the billing account configured, and a [Gemini Enterprise Engine](https://docs.cloud.google.com/gemini/enterprise/docs/quickstart-gemini-enterprise) created. 
-
-   For GCP project provisioning and allowlist questions, please contact your assigned Google Cloud account team.
+4. A [Google Cloud Platform (GCP)](https://docs.cloud.google.com/resource-manager/docs/creating-managing-projects) project needs to be created / provisioned with the billing account configured, and a [Gemini Enterprise Engine](https://docs.cloud.google.com/gemini/enterprise/docs/quickstart-gemini-enterprise) created.
 
 ## Setup
 

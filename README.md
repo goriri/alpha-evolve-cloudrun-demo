@@ -226,12 +226,14 @@ The AlphaEvolve skills allow you to run AlphaEvolve experiments directly from an
 
 There are 6 AlphaEvolve skills included, with `README.md` and `SKILL.md` files provided for each skill.
 
-* alpha_evolve_consultant
-* alpha_evolve_experiment_design
-* alpha_evolve_monitor
-* alpha_evolve_orchestrator
-* alpha_evolve_post_experiment
-* alpha_evolve_runner
+| Skill | Role |
+| --- | --- |
+| [`alpha_evolve_experiment_design`](skills/alpha_evolve_experiment_design) | Scaffolds new experiments via a test-driven workflow. |
+| [`alpha_evolve_runner`](skills/alpha_evolve_runner) | Configures backend requirements and launches the experiment. |
+| [`alpha_evolve_monitor`](skills/alpha_evolve_monitor) | Monitors running experiments and manages the local control loop. |
+| [`alpha_evolve_post_experiment`](skills/alpha_evolve_post_experiment) | Analyzes completed runs and integrates the best evolved code. |
+| [`alpha_evolve_orchestrator`](skills/alpha_evolve_orchestrator) | Master workflow skill that chains the core skills end-to-end. |
+| [`alpha_evolve_consultant`](skills/alpha_evolve_consultant) | Answers questions based on the expert reference guide. |
 
 Refer to the `README.md` file in the skills folder for instructions to get started with the skills.
 
