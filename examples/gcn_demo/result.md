@@ -54,9 +54,9 @@ Below is a comparison highlighting the architectural improvements made by AlphaE
 
 ### Performance Comparison
 
-| Metric | Original GCN (Baseline) | Best Evolved GCN (100 Epochs) | Improvement |
-| :--- | :--- | :--- | :--- |
-| **PearsonR (adme_sol)** | **0.3561** (after 501 epochs) | **0.4324** (after **100 epochs**) | **+21.4%** (in 5x fewer epochs) |
+| Metric | Original GCN (Baseline) | Best Evolved GCN (100 Epochs) | Best Evolved GCN (501 Epochs) | Max Improvement |
+| :--- | :--- | :--- | :--- | :--- |
+| **PearsonR (adme_sol)** | **0.3561** (after 501 epochs) | **0.4324** (after 100 epochs) | **0.4549** (after 501 epochs) | **+27.7%** (vs Baseline at 501 epochs) |
 
 ### Key Architectural Improvements
 
