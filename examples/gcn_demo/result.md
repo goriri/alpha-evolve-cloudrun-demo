@@ -12,6 +12,9 @@ This document summarizes the results of the evolutionary search performed by Alp
 *   **Evaluation Environment**: Cloud Run (1x NVIDIA L4 GPU, 4 vCPUs, 16GiB Memory)
 *   **Training Pacing**: 100 epochs per candidate
 *   **Primary Metric**: PearsonR correlation (higher is better)
+*   **Total Wall-Clock Time**: 20 minutes 9 seconds
+*   **Avg. Time per Candidate**: ~2 minutes (includes container startup and repository cloning)
+*   **Estimated Compute Cost**: ~$1.00 (based on Cloud Run L4 GPU, vCPU, and Memory active billing)
 
 ---
 
