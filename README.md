@@ -56,8 +56,8 @@ cloud infrastructure beyond the AlphaEvolve API. It's the fastest way to see the
 ### Run it
 
 ```bash
-git clone https://github.com/Google-Cloud-AI/alphaevolve-on-googlecloud.git
-cd alphaevolve-on-googlecloud
+git clone https://github.com/goriri/alpha-evolve-cloudrun-demo.git
+cd alpha-evolve-cloudrun-demo
 
 # Install the alpha_evolve package (from src/) with uv
 uv pip install -e ".[examples]"
@@ -165,6 +165,7 @@ infrastructure to production GPU training.
 | [`tsp`](examples/tsp)                                                                         | Evolve a tour-construction heuristic for the Travelling Salesman Problem (N=50), beyond nearest-neighbor.                                                                                                           | Local `exec()`     |
 | [`signal_processing`](examples/signal_processing)                                             | **Multi-objective** evaluation: an adaptive time-series filter judged on 14 competing metrics across 5 non-stationary signals, with structured insights fed back to the LLM.                                        | Local `exec()`     |
 | [`adaptive_sort`](examples/adaptive_sort) / [`adaptive_sort_cpp`](examples/adaptive_sort_cpp) | Evolve a **Rust** / **C++** sorting routine that adapts to data patterns, compiled and benchmarked safely in a remote function.                                                                                     | Cloud Run          |
+| [`gcn_demo`](examples/gcn_demo)                                                               | Evolve GCN model architecture for molecular property prediction (regression), utilizing a Cloud Run evaluator with **L4 GPU** and 100-epoch runs.                                                                   | Cloud Run (GPU)    |
 | [`llm_fine_tuning`](examples/llm_fine_tuning)                                                 | **Production GPU infra:** evolve LoRA hyperparameters for Gemma on autoscaling **L4 GPUs** via a persistent **RayCluster on GKE**, provisioned with Terraform and observed with Ray Dashboard + Prometheus/Grafana. | GKE + Ray          |
 
 ---
@@ -278,6 +279,7 @@ examples/
   signal_processing/  multi-objective, local eval
   adaptive_sort/      evolve Rust, Cloud Run evaluator
   adaptive_sort_cpp/  evolve C++, Cloud Run evaluator
+  gcn_demo/          evolve GCN, Cloud Run GPU evaluator
   llm_fine_tuning/    LoRA HPO on GKE + Ray (Terraform)
 tests/                Unit tests for the library
 bin/                  Release tooling
