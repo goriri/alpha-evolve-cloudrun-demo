@@ -1,173 +1,153 @@
-# AlphaEvolve Optimization Results (Remote)
+# AlphaEvolve GCN Optimization Results
 
-**Experiment**: projects/181550378089/locations/global/collections/default_collection/engines/alpha-evolve-protein-folding/sessions/12248980981927161488/alphaEvolveExperiments/16631855482071082748
-**Candidates**: 20
-**Epochs per evaluation**: 100
+This document summarizes the results of the evolutionary search performed by AlphaEvolve to optimize the Graph Convolutional Network (GCN) architecture for molecular solubility prediction (`adme_sol` dataset).
 
-## Top Programs
+---
 
-| Rank | Program ID | PearsonR |
-| --- | --- | --- |
-| 1 | `15110819558846743421` | 0.4324 |
-| 2 | `15110819558846745190` | 0.4276 |
-| 3 | `15110819558846745534` | 0.4256 |
-| 4 | `15110819558846745274` | 0.4239 |
-| 5 | `15110819558846746137` | 0.4231 |
+## Experiment Summary
 
-## Best Program Code
+*   **Experiment ID**: `projects/181550378089/locations/global/collections/default_collection/engines/alpha-evolve-protein-folding/sessions/12248980981927161488/alphaEvolveExperiments/16631855482071082748`
+*   **Search Budget**: 20 candidates evaluated
+*   **Pacing**: Concurrency = 2
+*   **Evaluation Environment**: Cloud Run (1x NVIDIA L4 GPU, 4 vCPUs, 16GiB Memory)
+*   **Training Pacing**: 100 epochs per candidate
+*   **Primary Metric**: PearsonR correlation (higher is better)
 
-```python
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
-from torch_geometric.nn import (
-    GCNConv,
-    global_add_pool,
-    global_mean_pool,
-    global_max_pool,
-)
+---
 
-from src.models.base import BaseModel
+## Evolution Progress
 
+Here is the chronological log of the evaluations. The search successfully navigated through minor regressions and code errors to find a highly optimized architecture:
 
-num_atom_type = 119
-num_chirality_tag = 4
+| Candidate # | Program ID | PearsonR | Status | Notes |
+| :--- | :--- | :--- | :--- | :--- |
+| **Baseline** | `15919755000362051439` | **0.3300** | Success | Seed program (initial optimized config from CPU proxy) |
+| 1 | `15110819558846743338` | 0.3712 | Success | Improved |
+| 2 | `15110819558846745192` | 0.3324 | Success | |
+| 3 | `15110819558846746442` | 0.3006 | Success | Regression |
+| 4 | `15110819558846743553` | 0.3031 | Success | |
+| 5 | `15110819558846744027` | 0.3975 | Success | Improved |
+| 6 | `15110819558846744501` | 0.2935 | Success | |
+| 7 | `15110819558846743854` | 0.3718 | Success | |
+| 8 | `15110819558846743207` | 0.3424 | Success | |
+| 9 | `15110819558846745190` | 0.4276 | Success | Improved |
+| 10 | `15110819558846745319` | 0.3709 | Success | |
+| 11 | `15110819558846743206` | 0.4102 | Success | |
+| 12 | `15110819558846745534` | 0.4256 | Success | |
+| 13 | `15110819558846743421` | **0.4324** | Success | **Best Program** |
+| 14 | `15110819558846746137` | 0.4231 | Success | |
+| 15 | `15110819558846746611` | -1.00e+12 | **Failed** | Runtime/Compile Error |
+| 16 | `15110819558846744110` | 0.3088 | Success | |
+| 17 | `15110819558846745274` | 0.4239 | Success | |
+| 18 | `15110819558846745748` | 0.3856 | Success | |
+| 19 | `15110819558846744756` | 0.3295 | Success | |
+| 20 | `15110819558846743031` | 0.4021 | Success | |
 
+---
 
-class SimpleGCNConv(nn.Module):
-    def __init__(self, in_dim, out_dim):
-        super(SimpleGCNConv, self).__init__()
-        self.linear = nn.Linear(in_dim, out_dim)
+## Comparison: Original vs. Best Evolved Program
 
-    def forward(self, x, edge_index):
-        row, col = edge_index
-        deg = torch.zeros(x.size(0), dtype=x.dtype, device=x.device)
-        deg.scatter_add_(
-            0, col, torch.ones(col.size(0), dtype=x.dtype, device=x.device)
-        )
-        deg_inv_sqrt = deg.pow(-0.5)
-        deg_inv_sqrt[deg_inv_sqrt == float("inf")] = 0
+Below is a comparison highlighting the architectural improvements made by AlphaEvolve.
 
-        norm = deg_inv_sqrt[row] * deg_inv_sqrt[col]
+### Performance Comparison
 
-        x = self.linear(x)
+| Metric | Original GCN (Baseline) | Best Evolved GCN (100 Epochs) | Improvement |
+| :--- | :--- | :--- | :--- |
+| **PearsonR (adme_sol)** | **0.3561** (after 501 epochs) | **0.4324** (after **100 epochs**) | **+21.4%** (in 5x fewer epochs) |
 
-        out = torch.zeros_like(x)
-        out.index_add_(0, col, x[row] * norm.view(-1, 1))
+### Key Architectural Improvements
 
-        return out
+AlphaEvolve transformed the GCN model from a basic message-passing network into an advanced architecture:
 
+1.  **Multi-Scale & Global Pooling**:
+    *   *Original*: Relied on a single pooling method (defaulting to `global_mean_pool`).
+    *   *Evolved*: Dynamically computes **mean, max, and sum pooling** for every layer, concatenating them (`torch.cat([h_mean, h_max, h_sum], dim=-1)`). The inclusion of sum pooling is chemically meaningful as it captures molecular size/weight, which correlates with solubility.
+2.  **Jumping Knowledge (JK) Layer Aggregation**:
+    *   *Original*: Only used the final layer's output (`h_list[-1]`) for graph representation.
+    *   *Evolved*: Aggregates feature representations across different depths by concatenating the pooled features of the **initial, middle, and last layer groups** (`pooled_features[0]`, `pooled_features[num_layer//2]`, `pooled_features[-1]`). This preserves multi-scale graph details.
+3.  **Modern Activations & Layer Normalization**:
+    *   *Original*: Used standard `ReLU` and basic linear layer mapping.
+    *   *Evolved*: Replaced `ReLU` with **`GELU`** (Gaussian Error Linear Unit) inside layers and **`SiLU`** (Sigmoid Linear Unit) in the prediction head. Added **`LayerNorm`** and projection layers (`jk_proj`, `feat_lin` MLP block) to stabilize deep propagation.
+4.  **Deeper Residual Prediction Head**:
+    *   *Original*: Simple 2-layer MLP head.
+    *   *Evolved*: Implemented a deeper prediction head with a **residual skip connection** around the hidden layer (`h = h + F.silu(self.pred_head1(h))`) and Layer Normalization, preventing gradient degradation in the final regression mapping.
+5.  **Sigmoid Removal for Regression**:
+    *   *Original*: Ended the forward pass with `torch.sigmoid(output)`, which restricted outputs to `[0, 1]`.
+    *   *Evolved*: Removed the sigmoid activation, allowing the network to output arbitrary real numbers suitable for regression targets (solubility values can be negative or > 1).
 
-# EVOLVE-BLOCK-START
-class GCN(BaseModel):
-    def __init__(
-        self,
-        in_feat: int = 113,
-        hidden_feat: int = 64,
-        out_feat: int = 32,
-        out: int = 1,
-        grid_feat: int = 1,
-        num_layers: int = 5,
-        pooling: str = "mean",
-        use_bias: bool = False,
-        drop_ratio: float = 0.0,
-        feat_dim: int = 256,
-    ):
-        super(GCN, self).__init__()
-        self.num_layer = num_layers
-        self.emb_dim = hidden_feat * 2
-        self.drop_ratio = drop_ratio
-        self.pooling = pooling
+---
 
-        self.x_embedding1 = nn.Embedding(num_atom_type, self.emb_dim)
-        self.x_embedding2 = nn.Embedding(num_chirality_tag, self.emb_dim)
-        nn.init.xavier_uniform_(self.x_embedding1.weight.data)
-        nn.init.xavier_uniform_(self.x_embedding2.weight.data)
+### Code Diff
 
-        self.convs = nn.ModuleList()
-        self.batch_norms = nn.ModuleList()
-
-        for i in range(num_layers):
-            self.convs.append(GCNConv(self.emb_dim, self.emb_dim))
-            self.batch_norms.append(nn.BatchNorm1d(self.emb_dim))
-
-        if pooling == "sum":
-            self.pool = global_add_pool
-        elif pooling == "mean":
-            self.pool = global_mean_pool
-        elif pooling == "max":
-            self.pool = global_max_pool
-        else:
-            self.pool = global_mean_pool
-
-        # JK representation size: 3 (mean, max, sum) * emb_dim * 3 layers selected (initial, middle, last)
-        self.jk_proj = nn.Linear(self.emb_dim * 3 * 3, self.emb_dim * 2)
-
-        # Use a combination of mean and max pooling to capture diverse graph properties
-        self.feat_lin = nn.Sequential(
-            nn.Linear(self.emb_dim * 2, feat_dim),
-            nn.LayerNorm(feat_dim),
-            nn.GELU()
-        )
-
-        # A deeper prediction head with LayerNorm and residual connection to stabilize learning
-        self.pred_head1 = nn.Sequential(
-            nn.Linear(feat_dim, feat_dim),
-            nn.LayerNorm(feat_dim),
-            nn.GELU(),
-            nn.Dropout(drop_ratio),
-        )
-        self.pred_head2 = nn.Linear(feat_dim, out)
-
-    def forward(self, data):
-        x, edge_index, batch = (
-            data.x,
-            data.edge_index,
-            data.batch,
-        )
-
-        x = self.x_embedding1(x[:, 0]) + self.x_embedding2(x[:, 1])
-
-        h_list = [x]
-        for layer in range(self.num_layer):
-            h = self.convs[layer](h_list[layer], edge_index)
-            h = self.batch_norms[layer](h)
-            h = F.gelu(h)
-            h = F.dropout(h, self.drop_ratio, training=self.training)
-            # Residual skip connection with scaling to stabilize deep propagation
-            h = h + h_list[layer]
-            h_list.append(h)
-
-        # Jump Knowledge (JK) layer aggregation: Pool each layer's representations.
-        # We include global sum pooling to capture molecular size/weight, which is critical for solubility.
-        pooled_features = []
-        for h_layer in h_list:
-            h_mean = global_mean_pool(h_layer, batch)
-            h_max = global_max_pool(h_layer, batch)
-            h_sum = global_add_pool(h_layer, batch)
-            pooled_features.append(torch.cat([h_mean, h_max, h_sum], dim=-1))
-        
-        # Concatenate final representation from initial, middle, and last layer groups to preserve diverse scales
-        # and project back to the expected dimension.
-        h_jk = torch.cat([pooled_features[0], pooled_features[self.num_layer // 2], pooled_features[-1]], dim=-1)
-        
-        h = self.jk_proj(h_jk)
-        h = self.feat_lin(h)
-        
-        # Residual MLP head with SiLU activation
-        h = h + F.silu(self.pred_head1(h))
-        output = self.pred_head2(h)
-
-        return output
-# EVOLVE-BLOCK-END
-
-    def load_my_state_dict(self, state_dict):
-        own_state = self.state_dict()
-        for name, param in state_dict.items():
-            if name not in own_state:
-                continue
-            if isinstance(param, torch.nn.Parameter):
-                param = param.data
-            own_state[name].copy_(param)
-
+```diff
+--- examples/gcn_demo/gcn_original.py
++++ examples/gcn_demo/gcn_optimized.py
+@@ -39,7 +39,8 @@
+-        self.feat_lin = nn.Linear(self.emb_dim, feat_dim)
++        # JK representation size: 3 (mean, max, sum) * emb_dim * 3 layers selected (initial, middle, last)
++        self.jk_proj = nn.Linear(self.emb_dim * 3 * 3, self.emb_dim * 2)
++
++        # Use a combination of mean and max pooling to capture diverse graph properties
++        self.feat_lin = nn.Sequential(
++            nn.Linear(self.emb_dim * 2, feat_dim),
++            nn.LayerNorm(feat_dim),
++            nn.GELU()
++        )
+ 
+-        self.pred_head = nn.Sequential(
+-            nn.Linear(feat_dim, feat_dim // 2),
+-            nn.ReLU(),
+-            nn.Linear(feat_dim // 2, out),
+-        )
++        # A deeper prediction head with LayerNorm and residual connection to stabilize learning
++        self.pred_head1 = nn.Sequential(
++            nn.Linear(feat_dim, feat_dim),
++            nn.LayerNorm(feat_dim),
++            nn.GELU(),
++            nn.Dropout(drop_ratio),
++        )
++        self.pred_head2 = nn.Linear(feat_dim, out)
+ 
+     def forward(self, data):
+@@ -53,9 +59,9 @@
+         h_list = [x]
+         for layer in range(self.num_layer):
+             h = self.convs[layer](h_list[layer], edge_index)
+             h = self.batch_norms[layer](h)
+-            if layer == self.num_layer - 1:
+-                h = F.dropout(h, self.drop_ratio, training=self.training)
+-            else:
+-                h = F.dropout(F.relu(h), self.drop_ratio, training=self.training)
++            h = F.gelu(h)
++            h = F.dropout(h, self.drop_ratio, training=self.training)
++            # Residual skip connection with scaling to stabilize deep propagation
++            h = h + h_list[layer]
+             h_list.append(h)
+ 
+-        node_representation = h_list[-1]
+-        h = self.pool(node_representation, batch)
+-        h = self.feat_lin(h)
+-        output = self.pred_head(h)
+-        output = torch.sigmoid(output)
++        # Jump Knowledge (JK) layer aggregation: Pool each layer's representations.
++        # We include global sum pooling to capture molecular size/weight, which is critical for solubility.
++        pooled_features = []
++        for h_layer in h_list:
++            h_mean = global_mean_pool(h_layer, batch)
++            h_max = global_max_pool(h_layer, batch)
++            h_sum = global_add_pool(h_layer, batch)
++            pooled_features.append(torch.cat([h_mean, h_max, h_sum], dim=-1))
++        
++        # Concatenate final representation from initial, middle, and last layer groups to preserve diverse scales
++        # and project back to the expected dimension.
++        h_jk = torch.cat([pooled_features[0], pooled_features[self.num_layer // 2], pooled_features[-1]], dim=-1)
++        
++        h = self.jk_proj(h_jk)
++        h = self.feat_lin(h)
++        
++        # Residual MLP head with SiLU activation
++        h = h + F.silu(self.pred_head1(h))
++        output = self.pred_head2(h)
+ 
+         return output
 ```
