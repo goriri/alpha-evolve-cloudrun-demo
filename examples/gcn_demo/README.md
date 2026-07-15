@@ -91,3 +91,13 @@ The orchestrator will:
 *   Submit the seed program (`gcn_original.py`) as the initial candidate.
 *   Run the controller loop to evaluate 20 candidates (concurrency=2).
 *   Print the top-performing architectures and their PearsonR scores at the end.
+
+---
+
+## Cost Estimate
+
+For a standard run of 20 candidates and 100 epochs per candidate (using Gemini 3.5 Flash for mutations and 1x NVIDIA L4 GPU on Cloud Run for evaluation):
+
+*   **Cloud Run GPU Compute**: ~$1.00 (active request billing for L4 GPU, vCPU, and Memory)
+*   **AlphaEvolve API (Inference + Agent)**: ~$1.00 (estimated token usage using Gemini 3.5 Flash at AlphaEvolve rates: $4.50/1M input, $27.00/1M output)
+*   **Total Estimated Cost**: **~$2.00**
