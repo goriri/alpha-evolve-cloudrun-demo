@@ -11,6 +11,7 @@ The target task is predicting molecular solubility using the `adme_sol` dataset 
 - [Overview](#overview)
 - [Architecture](#architecture)
     *   [Scaled Architecture for Long-Running Evaluations](#scaled-architecture-for-long-running-evaluations)
+    *   [On-Premise Architecture Configurations](#on-premise-architecture-configurations)
 - [Setup Instructions](#setup-instructions)
 - [Running the Optimization](#running-the-optimization)
 - [Results](#results)
@@ -121,6 +122,85 @@ sequenceDiagram
 *   **GCS Polling (Option B)**:
     *   *Separation of Concerns*: The evaluator remains a pure execution runner. It downloads code, runs it, and uploads the metric file to GCS. It has no knowledge of the AlphaEvolve API.
     *   *Centralized Credentials*: Only the Orchestrator Job needs permissions to speak to the AlphaEvolve backend, simplifying IAM role management and improving security.
+
+### On-Premise Architecture Configurations
+
+For organizations that keep data and computing resources behind a local firewall, AlphaEvolve supports running **both the orchestrator and the evaluator entirely on-premise**. 
+
+*Note: The AlphaEvolve backend remains a managed Google Cloud service. Your local machines will require outbound HTTPS internet access to `discoveryengine.googleapis.com` (port 443).*
+
+You can set up on-premise execution in two ways:
+
+#### Option A: Single-Machine On-Premise (Simplest)
+If you have a local GPU workstation, you can run the orchestrator loop and the model training evaluations on the **same machine**. The orchestrator invokes the evaluation logic directly as a local Python function or subprocess:
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant LocalWorkstation as Local Workstation (Orchestrator + Evaluator)
+    participant AE as AlphaEvolve API (Google Cloud)
+    participant Gemini as Gemini Model (3.5 Flash)
+
+    Note over LocalWorkstation, AE: 1. Setup
+    LocalWorkstation->>AE: Create Session & Experiment
+    LocalWorkstation->>AE: Submit Seed GCN Program (Baseline)
+    
+    Note over LocalWorkstation, AE: 2. Evolution Loop (Local Execution)
+    loop For each candidate (up to 20)
+        LocalWorkstation->>AE: Request candidate mutation (acquirePrograms)
+        AE->>Gemini: Mutate code block
+        Gemini-->>AE: Return mutated GCN code
+        AE-->>LocalWorkstation: Return candidate program payload
+        
+        Note over LocalWorkstation: Write code to local src/models/gcn.py
+        Note over LocalWorkstation: Run local training subprocess:<br/>python src/run.py --device cuda
+        Note over LocalWorkstation: Calculate validation score (PearsonR)
+        
+        LocalWorkstation->>AE: Submit program scores (submitProgramsEvaluations)
+    end
+```
+
+#### Option B: Distributed On-Premise (Local Network)
+If your development workstation does not have a GPU, you can run the orchestrator locally and offload evaluations to a **dedicated GPU server on your local intranet**:
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant DevWorkstation as Developer Workstation (Orchestrator)
+    participant AE as AlphaEvolve API (Google Cloud)
+    participant LocalGPUServer as Local GPU Server (FastAPI Evaluator)
+    participant Gemini as Gemini Model (3.5 Flash)
+
+    Note over DevWorkstation, LocalGPUServer: 1. Setup
+    DevWorkstation->>AE: Create Session & Experiment
+    DevWorkstation->>AE: Submit Seed GCN Program (Baseline)
+    
+    Note over DevWorkstation, LocalGPUServer: 2. Evolution Loop
+    loop For each candidate
+        DevWorkstation->>AE: Request candidate mutation (acquirePrograms)
+        AE->>Gemini: Mutate code block
+        Gemini-->>AE: Return mutated GCN code
+        AE-->>DevWorkstation: Return candidate program payload
+        
+        DevWorkstation->>LocalGPUServer: POST /evaluate (candidate code)
+        Note over LocalGPUServer: Write code to src/models/gcn.py
+        Note over LocalGPUServer: Run local training subprocess on GPU
+        Note over LocalGPUServer: Extract score
+        LocalGPUServer-->>DevWorkstation: Return evaluation score (PearsonR)
+        
+        DevWorkstation->>AE: Submit program scores (submitProgramsEvaluations)
+    end
+```
+
+#### Authentication Requirements
+To authorize your on-premise orchestrator to communicate with the AlphaEvolve Google Cloud API, you must configure **Application Default Credentials (ADC)** locally:
+
+1.  Create a Service Account in your GCP project and grant it the **Discovery Engine User** role.
+2.  Download the Service Account key file (`key.json`).
+3.  Set the environment variable pointing to the key file on your local workstation:
+    ```bash
+    export GOOGLE_APPLICATION_CREDENTIALS="/path/to/key.json"
+    ```
 
 ---
 
