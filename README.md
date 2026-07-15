@@ -13,6 +13,7 @@ The target task is predicting molecular solubility using the `adme_sol` dataset 
 - [Setup Instructions](#setup-instructions)
 - [Running the Optimization](#running-the-optimization)
 - [Results](#results)
+- [Lessons Learned](#lessons-learned)
 
 ---
 
@@ -115,3 +116,26 @@ The results of the best run are saved in `examples/gcn_demo/result.md`. The evol
 *   Jumping Knowledge (JK) style layer aggregation (concatenating initial, middle, and last layer features).
 *   GELU/SiLU activations and Layer Normalization.
 *   Deeper prediction head with residual connection.
+
+---
+
+## Lessons Learned
+
+When interacting with the AlphaEvolve API and running remote evaluations, keep the following lessons in mind:
+
+### 1. OIDC Token Authentication Fallbacks
+*   **The Issue**: When running orchestrator clients on GCE-hosted instances (such as Google Cloudtop VMs), the `google.oauth2` library defaults to fetching OIDC tokens from the local GCE Metadata Server. This generates a token signed for the VM's service account rather than the developer's Active Directory credentials (ADC), leading to `403 Forbidden` errors on the Cloud Run evaluator.
+*   **Solution**: For development/testing, configure the Cloud Run service to allow unauthenticated access (`--allow-unauthenticated`), or explicitly grant the VM's service account the `roles/run.invoker` permission on the Cloud Run service.
+
+### 2. Model Compatibility Constraints
+*   **The Issue**: Requesting older or standard model endpoints (e.g., `gemini-1.5-flash`) via the Discovery Engine API causes an `INVALID_ARGUMENT` exception.
+*   **Solution**: The AlphaEvolve engine currently only accepts modern/preview model IDs (such as `gemini-3.5-flash` or `gemini-3.1-pro-preview`).
+
+### 3. Concurrency Safety in Cloud Run
+*   **The Lesson**: Running concurrent candidate evaluations locally is prone to filesystem race conditions if multiple workers modify the same files. However, Cloud Run isolates container instances on their own ephemeral filesystems. This makes remote evaluations inherently concurrency-safe, allowing you to scale up the pacing (`concurrency` in the controller loop) without risk of state contamination.
+
+### 4. Self-Contained Docker Builds
+*   **The Lesson**: To make your remote evaluator portable, do not rely on copying local workspace directories containing target benchmarks into the container image. Instead, write the `Dockerfile` to clone the target repository directly from git during the build process, and only copy the minimal service override file (`evaluator_service.py`).
+
+### 5. Cost Visibility and Orchestration Fees
+*   **The Lesson**: The public Billing API does not expose raw spend tables via the CLI without setting up a BigQuery billing export (which is not retroactive). Additionally, AlphaEvolve charges an orchestration fee on top of base Gemini token pricing (bringing total rates to $4.50/1M input and $27.00/1M output for Flash). Monitor these rates in the Google Cloud Billing Console.
