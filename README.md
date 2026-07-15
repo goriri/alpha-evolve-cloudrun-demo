@@ -9,7 +9,8 @@ The target task is predicting molecular solubility using the `adme_sol` dataset 
 ## Contents
 
 - [Overview](#overview)
-- [How it Works](#how-it-works)
+- [Architecture](#architecture)
+    *   [Scaled Architecture for Long-Running Evaluations](#scaled-architecture-for-long-running-evaluations)
 - [Setup Instructions](#setup-instructions)
 - [Running the Optimization](#running-the-optimization)
 - [Results](#results)
@@ -69,6 +70,57 @@ sequenceDiagram
     *   It triggers the training script (`python src/run.py`) on an **NVIDIA L4 GPU**.
     *   It parses the resulting validation loss and PearsonR correlation from the output logs and returns them.
 4.  **Self-Contained Container Image**: Deployed to Cloud Run, this image is built once. To remain portable, it clones the benchmark repository directly from GitHub during image build time, installs CUDA-enabled PyTorch, PyG, DGL, and necessary libraries, and exposes the evaluator service port.
+
+### Scaled Architecture for Long-Running Evaluations
+
+For heavy deep learning tasks that run for hours or days, synchronous HTTP requests to Cloud Run Services will time out. The architecture below is designed for long-running, asynchronous evaluations where **both the orchestrator client and each candidate evaluation run as Cloud Run Jobs** (which support up to 24 hours of execution time and L4 GPUs).
+
+#### Jobs-Based Architecture Diagram
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Orch as Orchestrator Job (Cloud Run)
+    participant AE as AlphaEvolve API (GCP)
+    participant GCS as Cloud Storage Bucket
+    participant EvalJob as Evaluator Job (Cloud Run L4 GPU)
+
+    Note over Orch, EvalJob: 1. Setup
+    Orch->>AE: Acquire candidate program (lock_token, program_id, code)
+    Orch->>GCS: Upload candidate code to gs://bucket/candidates/{program_id}.py
+    
+    Note over Orch, EvalJob: 2. Trigger Evaluation
+    Orch->>EvalJob: Trigger Job Execution (using Cloud Run API) with env vars:<br/>CANDIDATE_URI=gs://bucket/candidates/{program_id}.py<br/>RESULT_URI=gs://bucket/results/{program_id}.json
+    
+    Note over EvalJob: 3. Execution (Up to 24h)
+    activate EvalJob
+    EvalJob->>GCS: Download candidate code
+    Note over EvalJob: Apply code to benchmark & Train model
+    Note over EvalJob: Calculate PearsonR score
+    EvalJob->>GCS: Write validation metrics to gs://bucket/results/{program_id}.json
+    deactivate EvalJob
+    
+    Note over Orch: 4. Polling Loop
+    loop Every X seconds
+        Orch->>GCS: Check if gs://bucket/results/{program_id}.json exists
+        GCS-->>Orch: File found
+    end
+    Orch->>GCS: Read result JSON (score)
+    Orch->>AE: Submit evaluation score (submitProgramsEvaluations)
+    Orch->>GCS: Clean up candidate & result files from bucket
+```
+
+#### Architectural Choices and Benefits
+
+*   **Cloud Run Jobs for Both Orchestrator and Evaluator**:
+    *   *No Timeout Limitations*: Cloud Run Services have a 60-minute limit, whereas Cloud Run Jobs support execution times up to **24 hours**. This allows large-scale models to train to convergence.
+    *   *Zero Idle Billing*: Evaluator jobs run to completion and exit. You are only billed for the exact millisecond duration of the active training execution. When the job exits, billing stops immediately.
+*   **Google Cloud Storage (GCS) as the Data Bridge**:
+    *   *Decoupling*: The local/remote file communication is offloaded to GCS. The orchestrator doesn't need to hold open connections to the evaluator.
+    *   *Payload Limits*: Passing raw code strings via API parameters can hit size limits. Storing code payloads on GCS (`gs://bucket/candidates/...`) avoids this and keeps logs clean.
+*   **GCS Polling (Option B)**:
+    *   *Separation of Concerns*: The evaluator remains a pure execution runner. It downloads code, runs it, and uploads the metric file to GCS. It has no knowledge of the AlphaEvolve API.
+    *   *Centralized Credentials*: Only the Orchestrator Job needs permissions to speak to the AlphaEvolve backend, simplifying IAM role management and improving security.
 
 ---
 
