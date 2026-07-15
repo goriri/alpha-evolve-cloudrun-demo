@@ -14,7 +14,10 @@ This document summarizes the results of the evolutionary search performed by Alp
 *   **Primary Metric**: PearsonR correlation (higher is better)
 *   **Total Wall-Clock Time**: 20 minutes 9 seconds
 *   **Avg. Time per Candidate**: ~2 minutes (includes container startup and repository cloning)
-*   **Estimated Compute Cost**: ~$1.00 (based on Cloud Run L4 GPU, vCPU, and Memory active billing)
+*   **Estimated Costs**:
+    *   **Cloud Run GPU Compute**: ~$1.00 (active request billing for L4 GPU, vCPU, and Memory)
+    *   **AlphaEvolve API (Gemini Inference)**: ~$0.50 (estimated token usage for 20 code mutations using Gemini 3.5 Flash / 3.1 Pro)
+    *   **Total Cost**: **~$1.50**
 
 ---
 
